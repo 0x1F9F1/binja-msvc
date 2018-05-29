@@ -122,13 +122,17 @@ def scan_for_rtti(thread, view, start, end):
                 for j in range(32):
                     func_ptr_addr = vtable_addr + (j * view.address_size)
                     reader.seek(func_ptr_addr)
-                    func_ptr = read_pointer(view, reader)
-                    if not view.is_offset_executable(func_ptr):
+                    func_addr = read_pointer(view, reader)
+
+                    if not view.is_offset_executable(func_addr):
                         break
-                    if j and view.get_code_refs(func_ptr_addr, view.address_size):
-                        break
+
+                    if view.get_function_at(func_ptr_addr) is None:
+                        if j and view.get_code_refs(func_ptr_addr, view.address_size):
+                            break
+
                     view.define_user_data_var(func_ptr_addr, void_ptr_type)
-                    view.create_user_function(func_ptr)
+                    view.create_user_function(func_addr)
 
 
 def scan_for_rtti_command(view):
