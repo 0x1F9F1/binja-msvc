@@ -1,9 +1,9 @@
 {
 	"plugin": {
-		"name": "binja-rtti",
+		"name": "binja-msvc",
 		"type": ["core", "ui", "architecture", "binaryview"],
 		"api": "python2",
-		"description": "A Binary Ninja plugin to scan for MSVC RTTI",
+		"description": "A Binary Ninja plugin to scan for MSVC constructs",
 		"longdescription": "",
 		"license": {
 			"name": "MIT",

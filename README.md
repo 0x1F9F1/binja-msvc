@@ -1,4 +1,4 @@
-# Binja RTTI
+# Binja MSVC
 Author: **Brick**
 
-A very basic plugin to scan for MSVC RTTI and create/label vtables.
+A basic plugin which scans for MSVC RTTI and RUNTIME_FUNCTION's
