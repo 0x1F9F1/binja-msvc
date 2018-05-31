@@ -104,6 +104,16 @@ def is_broken_thiscall(func):
     return False
 
 
+def fix_thiscalls(thread, view):
+    for func in view.functions:
+        if func.arch.name != 'x86':
+            return
+        if is_broken_thiscall(func):
+            func.calling_convention = func.arch.calling_conventions['thiscall']
+            thread.progress = 'Fixed {0}'.format(func.name)
+
+
+
 def command_scan_for_rtti(view):
     if '.rdata' in view.sections:
         rdata = view.sections['.rdata']
@@ -120,11 +130,8 @@ def command_parse_unwind_info(view):
 
 
 def command_fix_thiscalls(view):
-    for func in view.functions:
-        if func.arch.name != 'x86':
-            return
-        if is_broken_thiscall(func):
-            func.calling_convention = func.arch.calling_conventions['thiscall']
+    task = RunInBackground('Fixing thiscall\'s', fix_thiscalls, view)
+    task.start()
 
 
 PluginCommand.register(
@@ -142,8 +149,8 @@ PluginCommand.register(
 )
 
 PluginCommand.register(
-    'Fix __thiscall\'s',
-    'Convert appropriate __stdcall\'s and __fastcall\'s into __thiscall\'s',
+    'Fix thiscall\'s',
+    'Convert appropriate stdcall\'s and fastcall\'s into thiscall\'s',
     lambda view: command_fix_thiscalls(view),
     lambda view: view.arch.name == 'x86'
 )
