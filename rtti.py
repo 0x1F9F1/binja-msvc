@@ -1,4 +1,4 @@
-from binaryninja import log
+from binaryninja import log, demangle
 from utils import read_pointer, read_cstring
 
 
@@ -27,6 +27,16 @@ def read_rtti_pointer(view, reader):
 
 def check_offset(view, offset):
     return view.start <= offset < view.end
+
+
+def get_vtable_name(view, name):
+    if name[:3] in [ '?AU', '?AV' ]:
+        demangle_type, demangle_name = demangle.demangle_ms(view.arch, '??_7{0}6B@'.format(name[3:]))
+
+        if demangle_type is not None:
+            return '::'.join(demangle_name)
+
+    return 'vtable_{0}'.format(name)
 
 
 class RTTICompleteObjectLocator:
@@ -61,8 +71,7 @@ class RTTITypeDescriptor:
         self.decorated_name = read_cstring(reader)
         if not self.decorated_name.startswith('.?'):
             return False
-        # Currently binja doesn't demangle the vtable name
-        self.name = self.decorated_name[1:]
+        self.name = get_vtable_name(view, self.decorated_name[1:])
         return True
 
 

@@ -1,19 +1,14 @@
-from binaryninja import PluginCommand, BinaryReader, Symbol, SymbolType, demangle, log
+from binaryninja import PluginCommand, BinaryReader, Symbol, SymbolType, log
 from .pefile import *
 
 from rtti import RTTICompleteObjectLocator
 from utils import RunInBackground, read_pointer
 
 
-def get_vtable_name(view, name):
-    if name[:3] in [ '?AU', '?AV' ]:
-        demangle_type, demangle_name = demangle.demangle_ms(view.arch, '??_7{0}6B@'.format(name[3:]))
-
-        if demangle_type is not None:
-            return '{0} {1}'.format(demangle_type, '::'.join(demangle_name))
-
-    log.log_debug('Bad vtable: {0}'.format(name))
-    return 'vtable_{0}'.format(name)
+def read_pe_header(view, reader):
+    seg = view.get_segment_at(view.start)
+    reader.seek(seg.start)
+    return pefile.PE(data = reader.read(seg.length))
 
 
 def scan_for_rtti(thread, view, start, end):
@@ -31,12 +26,13 @@ def scan_for_rtti(thread, view, start, end):
             rtti = RTTICompleteObjectLocator()
             if rtti.read(view, reader, pCompleteObject):
                 vtable_addr = i + view.address_size
+                vtable_name = rtti.type_descriptor.name
 
-                thread.progress = 'Found vftable @ 0x{0:X}'.format(vtable_addr)
-                vtable_name = get_vtable_name(view, rtti.type_descriptor.name)
+                thread.progress = 'Found {0} @ 0x{1:X}'.format(vtable_name, vtable_addr)
+
                 view.define_user_symbol(Symbol(SymbolType.DataSymbol, vtable_addr, vtable_name))
 
-                for j in range(32):
+                for j in range(64):
                     func_ptr_addr = vtable_addr + (j * view.address_size)
                     reader.seek(func_ptr_addr)
                     func_addr = read_pointer(view, reader)
@@ -60,16 +56,13 @@ def scan_for_rtti(thread, view, start, end):
 
 
 def parse_unwind_info(thread, view):
-    base_addr = view.start
+    base_address = view.start
     reader = BinaryReader(view)
 
-    first_seg = view.segments[0]
-    reader.seek(first_seg.start)
-    pe = pefile.PE(data = reader.read(first_seg.length))
+    pe = read_pe_header(view, reader)
 
     unwind_directory = pe.OPTIONAL_HEADER.DATA_DIRECTORY[3]
-
-    unwind_entrys = base_addr + unwind_directory.VirtualAddress
+    unwind_entrys = base_address + unwind_directory.VirtualAddress
 
     funcs = set()
 
@@ -82,8 +75,8 @@ def parse_unwind_info(thread, view):
         info_rva = reader.read32le()
         if (not start_rva) or (not end_rva) or (not info_rva):
             break
-        start_addr = base_addr + start_rva
-        end_addr = base_addr + end_rva
+        start_addr = base_address + start_rva
+        end_addr = base_address + end_rva
         if not view.is_offset_executable(start_addr):
             break
         thread.progress = 'Found unwind info @ 0x{0:X}'.format(start_addr)
@@ -125,20 +118,27 @@ def command_parse_unwind_info(view):
     task = RunInBackground('Parsing Unwind Info', parse_unwind_info, view)
     task.start()
 
-SUPPORTED_ARCHS = [ 'x86', 'x86_64' ]
+
+def command_fix_thiscalls(view):
+    for func in view.functions:
+        if func.arch.name != 'x86':
+            return
+        if is_broken_thiscall(func):
+            func.calling_convention = func.arch.calling_conventions['thiscall']
+
 
 PluginCommand.register(
     'Scan for RTTI',
     'Scans for MSVC RTTI',
     lambda view: command_scan_for_rtti(view),
-    lambda view: view.arch.name in SUPPORTED_ARCHS
+    lambda view: view.arch.name in [ 'x86', 'x86_64' ]
 )
 
 PluginCommand.register(
     'Parse exception handlers',
     'Create functions based on exception handlers',
     lambda view: command_parse_unwind_info(view),
-    lambda view: view.arch.name in SUPPORTED_ARCHS
+    lambda view: view.arch.name in [ 'x86', 'x86_64' ]
 )
 
 PluginCommand.register(
