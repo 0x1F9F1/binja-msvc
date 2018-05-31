@@ -97,6 +97,20 @@ def parse_unwind_info(thread, view):
             view.create_user_function(func)
 
 
+def is_broken_thiscall(func):
+    function_type = func.function_type
+    if function_type.calling_convention == func.arch.calling_conventions['fastcall']:
+        return True
+    if function_type.calling_convention == func.arch.calling_conventions['stdcall']:
+        params = function_type.parameters
+        if params:
+            this_ptr = params[0]
+            if this_ptr.location is not None:
+                if this_ptr.location.name == 'ecx':
+                    return True
+    return False
+
+
 def command_scan_for_rtti(view):
     if '.rdata' in view.sections:
         rdata = view.sections['.rdata']
@@ -125,4 +139,11 @@ PluginCommand.register(
     'Create functions based on exception handlers',
     lambda view: command_parse_unwind_info(view),
     lambda view: view.arch.name in SUPPORTED_ARCHS
+)
+
+PluginCommand.register(
+    'Fix __thiscall\'s',
+    'Convert appropriate __stdcall\'s and __fastcall\'s into __thiscall\'s',
+    lambda view: command_fix_thiscalls(view),
+    lambda view: view.arch.name == 'x86'
 )
