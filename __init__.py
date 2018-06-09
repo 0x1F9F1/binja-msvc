@@ -55,6 +55,7 @@ def scan_for_rtti(thread, view, start, end):
             view.create_user_function(func)
 
 
+# https://msdn.microsoft.com/en-us/library/ft9x1kdx.aspx
 def parse_unwind_info(thread, view):
     base_address = view.start
     reader = BinaryReader(view)
@@ -134,23 +135,30 @@ def command_fix_thiscalls(view):
     task.start()
 
 
+def check_view_platform(view, *platforms):
+    platform = view.platform
+    if platform is None:
+        return False
+    return platform.name in platforms
+
+
 PluginCommand.register(
     'Scan for RTTI',
     'Scans for MSVC RTTI',
     lambda view: command_scan_for_rtti(view),
-    lambda view: view.arch.name in [ 'x86', 'x86_64' ]
+    lambda view: check_view_platform(view, 'windows-x86', 'windows-x86_64')
 )
 
 PluginCommand.register(
     'Parse exception handlers',
     'Create functions based on exception handlers',
     lambda view: command_parse_unwind_info(view),
-    lambda view: view.arch.name in [ 'x86', 'x86_64' ]
+    lambda view: check_view_platform(view, 'windows-x86_64')
 )
 
 PluginCommand.register(
     'Fix thiscall\'s',
     'Convert appropriate stdcall\'s and fastcall\'s into thiscall\'s',
     lambda view: command_fix_thiscalls(view),
-    lambda view: view.arch.name == 'x86'
+    lambda view: check_view_platform(view, 'windows-x86')
 )
