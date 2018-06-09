@@ -49,15 +49,22 @@ class RTTICompleteObjectLocator:
         cd_offset = read_rtti_pointer(view, reader)
         type_desc_offset = read_rtti_pointer(view, reader)
         class_desc_offset = read_rtti_pointer(view, reader)
+
+        if cd_offset is None or type_desc_offset is None or class_desc_offset is None:
+            return False
+
         if not check_offset(view, type_desc_offset):
             log.log_error('Bad Type Descriptor @ 0x{0:X}'.format(type_desc_offset))
             return False
+
         if not check_offset(view, class_desc_offset):
             log.log_error('Bad Class Descriptor @ 0x{0:X}'.format(class_desc_offset))
             return False
+
         self.type_descriptor = RTTITypeDescriptor()
         if not self.type_descriptor.read(view, reader, type_desc_offset):
             return False
+
         return True
 
 
