@@ -42,7 +42,7 @@ def align_up(value, align):
     return value
 
 
-def check_offset(view, offset):
+def check_address(view, offset):
     return view.start <= offset < view.end
 
 
@@ -149,3 +149,19 @@ class BinjaStruct(object):
             results.append(value)
 
         return results, address
+
+
+def get_bits(value, offset, count):
+    return (value >> offset) & ((1 << count) - 1)
+
+
+def split_bits(container, name, fields):
+    value = container[name]
+    for sub_name, offset, count in fields:
+        container[sub_name] = get_bits(value, offset, count)
+    del container[name]
+
+
+def update_percentage(thread, start, end, current, message):
+    percentage = int(100.0 * (current - start) / (end -start))
+    thread.progress = '{0} - {1}%'.format(message, percentage)

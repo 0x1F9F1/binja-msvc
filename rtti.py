@@ -1,6 +1,6 @@
 from binaryninja import Symbol, Type, log, demangle
 from binaryninja.enums import SymbolType
-from utils import BinjaStruct, read_cstring, check_offset
+from utils import BinjaStruct, read_cstring, check_address, update_percentage
 
 
 def check_rtti_signature(view, magic):
@@ -19,13 +19,17 @@ def get_rtti_address(view, offset):
     raise NotImplementedError()
 
 
+def fix_rtti_offset(view, container, name):
+    container[name] = get_rtti_address(view, container[name])
+
+
 def get_vtable_name(view, name):
     if name[:3] in [ '?AU', '?AV' ]:
         # demangle_ms doesn't support flags (UNDNAME_32_BIT_DECODE | UNDNAME_NAME_ONLY | UNDNAME_NO_ARGUMENTS | UNDNAME_NO_MS_KEYWORDS)
         demangle_type, demangle_name = demangle.demangle_ms(view.arch, '??_7{0}6B@'.format(name[3:]))
 
         if demangle_type is not None:
-            return '::'.join(demangle_name)
+            return demangle.get_qualified_name(demangle_name)
 
     return 'vtable_{0}'.format(name)
 
@@ -71,36 +75,17 @@ def read_object_locator(view, address):
     else:
         raise NotImplementedError()
 
-    object_locator, _ = RTTICompleteObjectLocator_t.read(view, address)
+    object_locator, address = RTTICompleteObjectLocator_t.read(view, address)
 
-    if object_locator is None:
-        return None
+    if object_locator is not None:
+        fix_rtti_offset(view, object_locator, 'cdOffset')
+        fix_rtti_offset(view, object_locator, 'pTypeDescriptor')
+        fix_rtti_offset(view, object_locator, 'pClassDescriptor')
 
-    if not check_rtti_signature(view, object_locator['signature']):
-        return None
+        if 'pSelf' in object_locator:
+            fix_rtti_offset(view, object_locator, 'pSelf')
 
-    cd_address = get_rtti_address(view, object_locator['cdOffset'])
-
-    if not check_offset(view, cd_address):
-        return None
-
-    type_address = get_rtti_address(view, object_locator['pTypeDescriptor'])
-
-    if not check_offset(view, type_address):
-        return None
-
-    class_address = get_rtti_address(view, object_locator['pClassDescriptor'])
-
-    if not check_offset(view, class_address):
-        return None
-
-    if 'pSelf' in object_locator:
-        self_address = get_rtti_address(view, object_locator['pSelf'])
-
-        if self_address != address:
-            return None
-
-    return cd_address, type_address, class_address
+    return object_locator, address
 
 
 RTTITypeDescriptor32_t = BinjaStruct('<II', names = ('vTable', 'UndecoratedName'))
@@ -114,28 +99,25 @@ def read_type_descriptor(view, address):
     else:
         raise NotImplementedError()
 
-    type_descriptor, decorated_name_address = RTTITypeDescriptor_t.read(view, address)
+    type_descriptor, address = RTTITypeDescriptor_t.read(view, address)
 
-    if not check_offset(view, type_descriptor['vTable']):
-        return None
+    if type_descriptor is not None:
+        decorated_name, address = read_cstring(view, address)
 
-    if type_descriptor is None:
-        return None
+        type_descriptor['DecoratedName'] = decorated_name
 
-    decorated_name, _ = read_cstring(view, decorated_name_address)
-
-    if not decorated_name.startswith('.?'):
-        return None
-
-    return decorated_name,
+    return type_descriptor, address
 
 
 def scan_for_rtti(thread, view, start, end):
     pointer_t = BinjaStruct.Pointer(view)
 
+    count = 0
     funcs = set()
 
     for i in range(start, end, view.address_size):
+        update_percentage(thread, start, end, i, 'Scanning for RTTI - Found {0} vtables'.format(count))
+
         if thread.cancelled:
             break
 
@@ -144,34 +126,49 @@ def scan_for_rtti(thread, view, start, end):
         if locator_address is None:
             continue
 
-        if not check_offset(view, locator_address):
+        if not check_address(view, locator_address):
             continue
 
-        object_locator = read_object_locator(view, locator_address)
+        object_locator, _ = read_object_locator(view, locator_address)
 
         if object_locator is None:
             continue
 
-        cd_address, type_address, class_address = object_locator
+        if not check_rtti_signature(view, object_locator['signature']):
+            continue
 
-        type_descriptor = read_type_descriptor(view, type_address)
+        if 'pSelf' in object_locator:
+            if object_locator['pSelf'] != locator_address:
+                continue
+
+        type_address = object_locator['pTypeDescriptor']
+
+        if not check_address(view, type_address):
+            continue
+
+        type_descriptor, _ = read_type_descriptor(view, type_address)
 
         if type_descriptor is None:
             continue
 
-        decorated_name, = type_descriptor
+        if not check_address(view, type_descriptor['vTable']):
+            continue
+
+        decorated_name = type_descriptor['DecoratedName']
 
         vtable_address = i + view.address_size
-        vtable_name = get_vtable_name(view, decorated_name[1:])
 
-        thread.progress = 'Found {0} @ 0x{1:X}'.format(vtable_name, vtable_address)
+        if decorated_name.startswith('.?'):
+            vtable_name = get_vtable_name(view, decorated_name[1:])
+        else:
+            vtable_name = 'vtable_{0:X}'.format(vtable_address)
 
+        count += 1
         funcs |= set(create_vtable(view, vtable_name, vtable_address))
 
-
-    log.log_info('Found {0} Functions'.format(len(funcs)))
-    thread.progress = 'Creating {0} Functions'.format(len(funcs))
-
     if not thread.cancelled:
+        thread.progress = 'Creating {0} Function'.format(len(funcs))
+        log.log_info('Found {0} functions'.format(len(funcs)))
+
         for func in funcs:
             view.create_user_function(func)
