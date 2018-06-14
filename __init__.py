@@ -3,6 +3,7 @@ from utils import RunInBackground
 from rtti import scan_for_rtti
 from unwind import parse_unwind_info
 from fixes import fix_thiscalls
+from tls import label_tls
 
 
 def command_scan_for_rtti(view):
@@ -22,6 +23,10 @@ def command_parse_unwind_info(view):
 def command_fix_thiscalls(view):
     task = RunInBackground('Fixing thiscall\'s', fix_thiscalls, view)
     task.start()
+
+
+def command_label_tls(view):
+    label_tls(view)
 
 
 def check_view_platform(view, *platforms):
@@ -50,4 +55,11 @@ PluginCommand.register(
     'Convert appropriate stdcall\'s and fastcall\'s into thiscall\'s',
     lambda view: command_fix_thiscalls(view),
     lambda view: check_view_platform(view, 'windows-x86')
+)
+
+PluginCommand.register(
+    'Label TLS',
+    'Labels TLS Structures',
+    lambda view: command_label_tls(view),
+    lambda view: check_view_platform(view, 'windows-x86_64')
 )
