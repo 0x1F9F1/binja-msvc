@@ -1,6 +1,6 @@
 from binaryninja import PluginCommand, log
 from utils import RunInBackground
-from rtti import scan_for_rtti
+from rtti import scan_for_rtti, create_vtable
 from unwind import parse_unwind_info
 from fixes import fix_thiscalls
 from tls import label_tls
@@ -13,6 +13,15 @@ def command_scan_for_rtti(view):
         task.start()
     else:
         log.log_error('Could not find .rdata section')
+
+
+def command_create_vtable(view, address):
+    vtable_name = 'vtable_{0:X}'.format(address)
+
+    funcs = create_vtable(view, vtable_name, address)
+
+    for func in funcs:
+        view.create_user_function(func)
 
 
 def command_parse_unwind_info(view):
@@ -41,6 +50,13 @@ PluginCommand.register(
     'Scans for MSVC RTTI',
     lambda view: command_scan_for_rtti(view),
     lambda view: check_view_platform(view, 'windows-x86', 'windows-x86_64')
+)
+
+PluginCommand.register_for_address(
+    'Create vftable',
+    'Creates a vftable at the current address',
+    lambda view, address: command_create_vtable(view, address),
+    lambda view, address: check_view_platform(view, 'windows-x86', 'windows-x86_64')
 )
 
 PluginCommand.register(
