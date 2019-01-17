@@ -9,13 +9,13 @@ IMAGE_TLS_DIRECTORY64_t = BinjaStruct('<QQQQII', names = ('StartAddressOfRawData
 
 def read_tls_directory(view, address):
     if view.address_size == 4:
-        IMAGE_TLS_DIRECTORY_t = IMAGE_TLS_DIRECTORY32_t
+        image_tls_directory_t = IMAGE_TLS_DIRECTORY32_t
     elif view.address_size == 8:
-        IMAGE_TLS_DIRECTORY_t = IMAGE_TLS_DIRECTORY64_t
+        image_tls_directory_t = IMAGE_TLS_DIRECTORY64_t
     else:
         raise NotImplementedError()
 
-    tls_directory, address = IMAGE_TLS_DIRECTORY_t.read(view, address)
+    tls_directory, address = image_tls_directory_t.read(view, address)
 
     return tls_directory, address
 

@@ -48,7 +48,7 @@ def check_address(view, offset):
 
 def read_pe_header(view):
     seg = view.get_segment_at(view.start)
-    return pefile.PE(data = view.read(seg.start, seg.length))
+    return pefile.PE(data = view.read(seg.start, seg.data_length))
 
 
 def get_endian_format(endian):

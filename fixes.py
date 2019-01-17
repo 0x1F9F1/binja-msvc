@@ -1,21 +1,21 @@
 from binaryninja import log
 
-
-def is_broken_thiscall(func):
+def get_proper_cc(func):
     function_type = func.function_type
-    if function_type.calling_convention == func.arch.calling_conventions['fastcall']:
-        return True
-    if function_type.calling_convention == func.arch.calling_conventions['stdcall']:
-        params = function_type.parameters
-        if params:
-            this_ptr = params[0]
-            if this_ptr.location is not None:
-                if this_ptr.location.name == 'ecx':
-                    return True
-    return False
+    params = function_type.parameters
+    cc_name = function_type.calling_convention.name
+    if cc_name == 'fastcall':
+        if (len(params) == 1) and (params[0].location is not None) and (params[0].location.name == 'ecx'):
+            return 'thiscall'
+    elif cc_name == 'stdcall':
+        if (len(params) > 0) and (params[0].location is not None) and (params[0].location.name == 'ecx'):
+            if (len(params) > 1) and (params[1].location is not None) and (params[1].location.name == 'edx'):
+                return 'fastcall'
+            return 'thiscall'
 
+    return None
 
-def fix_thiscalls(thread, view):
+def fix_x86_conventions(thread, view):
     count = 0
 
     for func in view.functions:
@@ -23,9 +23,10 @@ def fix_thiscalls(thread, view):
             break
         if func.arch.name != 'x86':
             return
-        if is_broken_thiscall(func):
-            func.calling_convention = func.arch.calling_conventions['thiscall']
+        cc = get_proper_cc(func)
+        if cc is not None:
+            func.calling_convention = func.arch.calling_conventions[cc]
             thread.progress = 'Fixed {0}'.format(func.name)
             count += 1
 
-    log.log_info('Fixed {0} thiscall\'s'.format(count))
+    log.log_info('Fixed {0} functions\'s'.format(count))
