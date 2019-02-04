@@ -77,5 +77,5 @@ PluginCommand.register(
     'Windows\\Label TLS',
     'Labels TLS Structures',
     lambda view: command_label_tls(view),
-    lambda view: check_view_platform(view, 'windows-x86_64')
+    lambda view: check_view_platform(view, 'windows-x86', 'windows-x86_64')
 )
