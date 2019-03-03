@@ -1,6 +1,6 @@
 from binaryninja import Symbol, Type, log, demangle
 from binaryninja.enums import SymbolType
-from utils import BinjaStruct, read_cstring, check_address, update_percentage
+from .utils import BinjaStruct, read_cstring, check_address, update_percentage
 
 
 def check_rtti_signature(view, magic):
