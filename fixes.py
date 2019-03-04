@@ -5,7 +5,7 @@ def get_proper_cc(func):
     params = function_type.parameters
     cc_name = function_type.calling_convention.name
     if cc_name == 'fastcall':
-        if (len(params) == 1) and (params[0].location is not None) and (params[0].location.name == 'ecx'):
+        if (len(params) == 1) and ((params[0].location is None) or (params[0].location.name == 'ecx')):
             return 'thiscall'
     elif cc_name == 'stdcall':
         if (len(params) > 0) and (params[0].location is not None) and (params[0].location.name == 'ecx'):
