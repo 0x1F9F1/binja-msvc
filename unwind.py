@@ -1,5 +1,5 @@
 from binaryninja import log
-from utils import BinjaStruct, read_pe_header, split_bits, update_percentage
+from .utils import BinjaStruct, read_pe_header, split_bits, update_percentage
 
 # https://msdn.microsoft.com/en-us/library/ft9x1kdx.aspx
 

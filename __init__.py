@@ -1,9 +1,9 @@
 from binaryninja import PluginCommand, log
-from utils import RunInBackground
-from rtti import scan_for_rtti, create_vtable
-from unwind import parse_unwind_info
-from fixes import fix_x86_conventions
-from tls import label_tls
+from .utils import RunInBackground
+from .rtti import scan_for_rtti, create_vtable
+from .unwind import parse_unwind_info
+from .fixes import fix_x86_conventions
+from .tls import label_tls
 
 
 def command_scan_for_rtti(view):

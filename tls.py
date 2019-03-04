@@ -1,7 +1,7 @@
 from binaryninja import Symbol, Type, log
 from binaryninja.enums import SymbolType
 
-from utils import BinjaStruct, read_pe_header, check_address
+from .utils import BinjaStruct, read_pe_header, check_address
 
 
 IMAGE_TLS_DIRECTORY32_t = BinjaStruct('<IIIIII', names = ('StartAddressOfRawData', 'EndAddressOfRawData', 'AddressOfIndex', 'AddressOfCallBacks', 'SizeOfZeroFill', 'Characteristics'))
