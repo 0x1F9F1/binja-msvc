@@ -1,4 +1,6 @@
-# Binja MSVC
+# MSVC
 Author: **Brick**
+_Parses MSVC structures to improve analysis_
 
-A basic plugin which scans for MSVC RTTI and RUNTIME_FUNCTION's
+## Description:
+Parses MSVC structures such as RTTI and Unwind Info to improve analysis
