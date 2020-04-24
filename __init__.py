@@ -2,7 +2,7 @@ from binaryninja import PluginCommand, log
 from .utils import RunInBackground
 from .rtti import scan_for_rtti, create_vtable
 from .unwind import parse_unwind_info
-from .fixes import fix_x86_conventions
+from .fixes import fix_x86_conventions, fix_mangled_symbols
 from .tls import label_tls
 
 
@@ -30,9 +30,12 @@ def command_parse_unwind_info(view):
 
 
 def command_fix_x86_conventions(view):
-    task = RunInBackground('Fixing calling conventions\'s', fix_x86_conventions, view)
+    task = RunInBackground('Fixing calling conventions', fix_x86_conventions, view)
     task.start()
 
+def command_mangled_symbols(view):
+    task = RunInBackground('Fixing mangled symbols', fix_mangled_symbols, view)
+    task.start()
 
 def command_label_tls(view):
     label_tls(view)
@@ -72,6 +75,14 @@ PluginCommand.register(
     lambda view: command_fix_x86_conventions(view),
     lambda view: check_view_platform(view, 'windows-x86')
 )
+
+PluginCommand.register(
+    'Windows\\Fix mangled symbols',
+    'Fix types of mangled symbols',
+    lambda view: command_mangled_symbols(view),
+    lambda view: check_view_platform(view, 'windows-x86', 'windows-x86_64')
+)
+
 
 PluginCommand.register(
     'Windows\\Label TLS',

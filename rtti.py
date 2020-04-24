@@ -24,12 +24,15 @@ def fix_rtti_offset(view, container, name):
 
 
 def get_vtable_name(view, name):
-    if name[:3] in [ '?AU', '?AV' ]:
-        # demangle_ms doesn't support flags (UNDNAME_32_BIT_DECODE | UNDNAME_NAME_ONLY | UNDNAME_NO_ARGUMENTS | UNDNAME_NO_MS_KEYWORDS)
-        demangle_type, demangle_name = demangle.demangle_ms(view.arch, '??_7{0}6B@'.format(name[3:]))
+    try:
+        if name[:3] in [ b'?AU', b'?AV' ]:
+            # demangle_ms doesn't support flags (UNDNAME_32_BIT_DECODE | UNDNAME_NAME_ONLY | UNDNAME_NO_ARGUMENTS | UNDNAME_NO_MS_KEYWORDS)
+            demangle_type, demangle_name = demangle.demangle_ms(view.arch, '??_7{0}6B@'.format(name[3:].decode('ascii')))
 
-        if demangle_type is not None:
-            return demangle.get_qualified_name(demangle_name)
+            if demangle_type is not None:
+                return demangle.get_qualified_name(demangle_name)
+    except:
+        pass
 
     return 'vtable_{0}'.format(name)
 
@@ -58,7 +61,8 @@ def create_vtable(view, vtable_name, vtable_address, max_funcs = 64):
         funcs.append(func_address)
 
     if funcs:
-        view.define_user_symbol(Symbol(SymbolType.DataSymbol, vtable_address, vtable_name))
+        if vtable_name is not None:
+            view.define_user_symbol(Symbol(SymbolType.DataSymbol, vtable_address, vtable_name))
         view.define_user_data_var(vtable_address, Type.array(Type.pointer(view.arch, Type.void(), const = True), len(funcs)))
 
     return funcs
@@ -158,7 +162,7 @@ def scan_for_rtti(thread, view, start, end):
 
         vtable_address = i + view.address_size
 
-        if decorated_name.startswith('.?'):
+        if decorated_name.startswith(b'.?'):
             vtable_name = get_vtable_name(view, decorated_name[1:])
         else:
             vtable_name = 'vtable_{0:X}'.format(vtable_address)

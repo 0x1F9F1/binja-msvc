@@ -32,7 +32,7 @@ def read_cstring(view, address):
 
         buf.append(value)
 
-    return str(buf), address
+    return buf, address
 
 
 def align_up(value, align):
