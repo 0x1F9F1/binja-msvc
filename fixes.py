@@ -1,7 +1,7 @@
 from binaryninja import log
 from binaryninja.demangle import demangle_ms
 from binaryninja.enums import TypeClass, NamedTypeReferenceClass
-from binaryninja.types import Type, NamedTypeReference
+from binaryninja.types import Type, NamedTypeReference, Symbol
 
 from .rtti import create_vtable
 
@@ -89,5 +89,7 @@ def fix_mangled_symbols(thread, view):
     for sym in view.symbols.values():
         if thread.cancelled:
             break
+        if not isinstance(sym, Symbol):
+            continue
         if '`vftable\'' in sym.full_name:
             create_vtable(view, None, sym.address)

@@ -1,10 +1,11 @@
-from binaryninja import PluginCommand, log
+from binaryninja import PluginCommand, log, interaction
+
 from .utils import RunInBackground
 from .rtti import scan_for_rtti, create_vtable
 from .unwind import parse_unwind_info
 from .fixes import fix_x86_conventions, fix_mangled_symbols
 from .tls import label_tls
-
+from .mapfile import load_map_file
 
 def command_scan_for_rtti(view):
     if '.rdata' in view.sections:
@@ -40,13 +41,19 @@ def command_mangled_symbols(view):
 def command_label_tls(view):
     label_tls(view)
 
+def command_load_mapfile(view):
+    filename = interaction.get_open_filename_input('Map File', '*.map')
+
+    if filename is not None:
+        task = RunInBackground('Loading map file', load_map_file, view, filename)
+        task.start()
+
 
 def check_view_platform(view, *platforms):
     platform = view.platform
     if platform is None:
         return False
     return platform.name in platforms
-
 
 PluginCommand.register(
     'Windows\\Scan for RTTI',
@@ -83,10 +90,16 @@ PluginCommand.register(
     lambda view: check_view_platform(view, 'windows-x86', 'windows-x86_64')
 )
 
-
 PluginCommand.register(
     'Windows\\Label TLS',
     'Labels TLS Structures',
     lambda view: command_label_tls(view),
+    lambda view: check_view_platform(view, 'windows-x86', 'windows-x86_64')
+)
+
+PluginCommand.register(
+    'Windows\\Load Map File',
+    'Loads symbols from a map file',
+    lambda view: command_load_mapfile(view),
     lambda view: check_view_platform(view, 'windows-x86', 'windows-x86_64')
 )
