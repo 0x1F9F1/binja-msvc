@@ -42,16 +42,10 @@ def fix_x86_conventions(thread, view):
     log.log_info('Fixed {0} functions\'s'.format(count))
 
 def process_msvc_func(func):
-    view = func.view
     arch = func.arch
-    symbol = func.symbol
+    plat = func.platform
 
-    mangled_name = symbol.raw_name
-
-    if mangled_name.startswith('??_7') and not mangled_name.endswith('@@6B@'): # Skip buggy vtables
-        return
-
-    sym_type, sym_parts = demangle_ms(arch, mangled_name)
+    sym_type, sym_parts = demangle_ms(arch, func.symbol.raw_name)
 
     if (sym_type is None) or (sym_type.type_class != TypeClass.FunctionTypeClass):
         return
@@ -64,22 +58,27 @@ def process_msvc_func(func):
 
     tokens_before = [str(v) for v in sym_type.get_tokens_before_name()]
 
-    convention = 'cdecl'
+    is_member = ('public:' in tokens_before) or ('protected:' in tokens_before) or ('private:' in tokens_before)
+    is_static = 'static' in tokens_before
+
+    convention = plat.default_calling_convention
 
     if '__cdecl' in tokens_before:
-        convention = 'cdecl'
+        convention = plat.cdecl_calling_convention
     elif '__stdcall' in tokens_before:
-        convention = 'stdcall'
+        convention = plat.stdcall_calling_convention
+    elif '__fastcall' in tokens_before:
+        convention = plat.fastcall_calling_convention
     elif '__thiscall' in tokens_before:
-        convention = 'thiscall'
+        convention = arch.calling_conventions['thiscall']
 
-    if (convention == 'thiscall') and len(sym_parts) >= 2:
+    if len(sym_parts) >= 2 and is_member and not is_static:
         if 'static' not in tokens_before:
             type_name = '::'.join(sym_parts[:-1])
             this_type = Type.pointer(arch, Type.named_type(NamedTypeReference(NamedTypeReferenceClass.StructNamedTypeClass, name = type_name)))
             params.insert(0, this_type)
 
-    func.function_type = Type.function(return_type, params, arch.calling_conventions[convention], sym_type.has_variable_arguments)
+    func.function_type = Type.function(return_type, params, convention, sym_type.has_variable_arguments)
 
 def fix_mangled_symbols(thread, view):
     for func in view.functions:

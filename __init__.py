@@ -5,7 +5,7 @@ from .rtti import scan_for_rtti, create_vtable
 from .unwind import parse_unwind_info
 from .fixes import fix_x86_conventions, fix_mangled_symbols
 from .tls import label_tls
-from .mapfile import load_map_file
+from .mapfile import load_map_file, load_idc_file
 
 def command_scan_for_rtti(view):
     if '.rdata' in view.sections:
@@ -48,6 +48,12 @@ def command_load_mapfile(view):
         task = RunInBackground('Loading map file', load_map_file, view, filename)
         task.start()
 
+def command_load_idcfile(view):
+    filename = interaction.get_open_filename_input('IDC File', '*.idc')
+
+    if filename is not None:
+        task = RunInBackground('Loading idc file', load_idc_file, view, filename)
+        task.start()
 
 def check_view_platform(view, *platforms):
     platform = view.platform
@@ -101,5 +107,12 @@ PluginCommand.register(
     'Windows\\Load Map File',
     'Loads symbols from a map file',
     lambda view: command_load_mapfile(view),
+    lambda view: check_view_platform(view, 'windows-x86', 'windows-x86_64')
+)
+
+PluginCommand.register(
+    'Windows\\Load IDC File',
+    'Loads symbols from a idc file',
+    lambda view: command_load_idcfile(view),
     lambda view: check_view_platform(view, 'windows-x86', 'windows-x86_64')
 )
