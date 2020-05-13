@@ -1,7 +1,7 @@
 from binaryninja import log
 from binaryninja.demangle import demangle_ms
 from binaryninja.enums import TypeClass, NamedTypeReferenceClass
-from binaryninja.types import Type, NamedTypeReference, Symbol
+from binaryninja.types import Type, NamedTypeReference, Symbol, FunctionParameter
 
 from .rtti import create_vtable
 
@@ -60,6 +60,7 @@ def process_msvc_func(func):
 
     is_member = ('public:' in tokens_before) or ('protected:' in tokens_before) or ('private:' in tokens_before)
     is_static = 'static' in tokens_before
+    is_virtual = 'virtual' in tokens_before
 
     convention = plat.default_calling_convention
 
@@ -72,11 +73,11 @@ def process_msvc_func(func):
     elif '__thiscall' in tokens_before:
         convention = arch.calling_conventions['thiscall']
 
-    if len(sym_parts) >= 2 and is_member and not is_static:
-        if 'static' not in tokens_before:
-            type_name = '::'.join(sym_parts[:-1])
-            this_type = Type.pointer(arch, Type.named_type(NamedTypeReference(NamedTypeReferenceClass.StructNamedTypeClass, name = type_name)))
-            params.insert(0, this_type)
+    if len(sym_parts) >= 2 and (is_member or is_virtual) and not is_static:
+        type_name = '::'.join(sym_parts[:-1])
+        this_type = Type.pointer(arch, Type.named_type(NamedTypeReference(NamedTypeReferenceClass.StructNamedTypeClass, name = type_name)))
+        this_type.const = True
+        params.insert(0, FunctionParameter(this_type, name = "this"))
 
     func.function_type = Type.function(return_type, params, convention, sym_type.has_variable_arguments)
 
