@@ -1,5 +1,5 @@
 from binaryninja import log
-from binaryninja.demangle import demangle_ms
+from binaryninja.demangle import demangle_ms, get_qualified_name
 from binaryninja.enums import TypeClass, NamedTypeReferenceClass
 from binaryninja.types import Type, NamedTypeReference, Symbol, FunctionParameter
 
@@ -82,19 +82,31 @@ def process_msvc_func(func):
     func.function_type = Type.function(return_type, params, convention, sym_type.has_variable_arguments)
 
 def fix_mangled_symbols(thread, view):
-    for func in view.functions:
-        if thread.cancelled:
-            break
-        process_msvc_func(func)
-
     for sym in view.symbols.values():
         if thread.cancelled:
             break
         if not isinstance(sym, Symbol):
             continue
 
+        if sym.short_name.startswith('?') and not sym.raw_name.startswith('?'):
+            demangled_type, demangled_name = demangle_ms(view.arch, sym.short_name)
+            if demangled_type is not None:
+                new_symbol = Symbol(sym.type, sym.address,
+                    short_name = get_qualified_name(demangled_name),
+                    full_name = get_qualified_name(demangled_name),
+                    raw_name = sym.short_name,
+                    binding = sym.binding,
+                    namespace = sym.namespace,
+                    ordinal = sym.ordinal)
+
+                view.undefine_user_symbol(sym)
+                view.define_user_symbol(new_symbol)
+                view.define_user_data_var(new_symbol.address, demangled_type)
+
+                sym = new_symbol
+
         # Create vtables
-        if '`vftable\'' in sym.full_name:
+        if 'vftable\'' in sym.full_name:
             create_vtable(view, None, sym.address)
 
         # Create strings
@@ -104,3 +116,8 @@ def fix_mangled_symbols(thread, view):
 
             if (ascii_string is not None) and (ascii_string.start == sym.address):
                 view.define_user_data_var(sym.address, Type.array(Type.char(), ascii_string.length))
+
+    for func in view.functions:
+        if thread.cancelled:
+            break
+        process_msvc_func(func)
