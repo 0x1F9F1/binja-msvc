@@ -85,10 +85,21 @@ def fix_mangled_symbols(thread, view):
         if thread.cancelled:
             break
         process_msvc_func(func)
+
     for sym in view.symbols.values():
         if thread.cancelled:
             break
         if not isinstance(sym, Symbol):
             continue
+
+        # Create vtables
         if '`vftable\'' in sym.full_name:
             create_vtable(view, None, sym.address)
+
+        # Create strings
+        if sym.raw_name.startswith('??_C@_'):
+            view.undefine_user_symbol(sym)
+            ascii_string = view.get_ascii_string_at(sym.address)
+
+            if (ascii_string is not None) and (ascii_string.start == sym.address):
+                view.define_user_data_var(sym.address, Type.array(Type.char(), ascii_string.length))
