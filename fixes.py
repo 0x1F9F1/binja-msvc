@@ -73,13 +73,24 @@ def process_msvc_func(func):
     elif '__thiscall' in tokens_before:
         convention = arch.calling_conventions['thiscall']
 
+    if return_type.type_class == TypeClass.NamedTypeReferenceClass and return_type.named_type_reference.type_class in {
+            NamedTypeReferenceClass.ClassNamedTypeClass, NamedTypeReferenceClass.StructNamedTypeClass, NamedTypeReferenceClass.UnionNamedTypeClass
+        }:
+        # TODO: This should only added for large/non trivial types
+        return_type = Type.pointer(arch, return_type)
+        params.insert(0, FunctionParameter(return_type, name = "retptr"))
+
     if len(sym_parts) >= 2 and (is_member or is_virtual) and not is_static:
         type_name = '::'.join(sym_parts[:-1])
         this_type = Type.pointer(arch, Type.named_type(NamedTypeReference(NamedTypeReferenceClass.StructNamedTypeClass, name = type_name)))
-        this_type.const = True
         params.insert(0, FunctionParameter(this_type, name = "this"))
 
-    func.function_type = Type.function(return_type, params, convention, sym_type.has_variable_arguments)
+        if (sym_parts[-1] == sym_parts[-2]) and (return_type.type_class == TypeClass.VoidTypeClass):
+            return_type = this_type
+
+    func_type = Type.function(return_type, params, convention, sym_type.has_variable_arguments)
+
+    func.function_type = func_type
 
 def fix_mangled_symbols(thread, view):
     for sym in view.symbols.values():
