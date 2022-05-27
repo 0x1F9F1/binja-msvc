@@ -52,7 +52,7 @@ def create_vtable(view, vtable_name, vtable_address, max_funcs = 64):
         if not view.is_offset_executable(func_address):
             break
 
-        func = view.get_function_at(func_pointer_address)
+        func = view.get_function_at(func_address)
 
         if func is None:
             if i and len(list(view.get_code_refs(func_pointer_address, view.address_size))) > 0:
