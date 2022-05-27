@@ -55,7 +55,7 @@ def create_vtable(view, vtable_name, vtable_address, max_funcs = 64):
         func = view.get_function_at(func_pointer_address)
 
         if func is None:
-            if i and view.get_code_refs(func_pointer_address, view.address_size):
+            if i and len(list(view.get_code_refs(func_pointer_address, view.address_size))) > 0:
                 break
 
         funcs.append(func_address)

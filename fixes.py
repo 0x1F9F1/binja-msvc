@@ -1,7 +1,7 @@
 from binaryninja import log
 from binaryninja.demangle import demangle_ms, get_qualified_name
 from binaryninja.enums import TypeClass, NamedTypeReferenceClass
-from binaryninja.types import Type, NamedTypeReference, Symbol, FunctionParameter
+from binaryninja.types import Type, NamedTypeReferenceType, Symbol, FunctionParameter
 
 from .rtti import create_vtable
 
@@ -73,7 +73,7 @@ def process_msvc_func(func):
     elif '__thiscall' in tokens_before:
         convention = arch.calling_conventions['thiscall']
 
-    if return_type.type_class == TypeClass.NamedTypeReferenceClass and return_type.named_type_reference.type_class in {
+    if return_type.type_class == TypeClass.NamedTypeReferenceClass and return_type.named_type_class in {
             NamedTypeReferenceClass.ClassNamedTypeClass, NamedTypeReferenceClass.StructNamedTypeClass, NamedTypeReferenceClass.UnionNamedTypeClass
         }:
         # TODO: This should only added for large/non trivial types
@@ -82,7 +82,7 @@ def process_msvc_func(func):
 
     if len(sym_parts) >= 2 and (is_member or is_virtual) and not is_static:
         type_name = '::'.join(sym_parts[:-1])
-        this_type = Type.pointer(arch, Type.named_type(NamedTypeReference(NamedTypeReferenceClass.StructNamedTypeClass, name = type_name)))
+        this_type = Type.pointer(arch, Type.named_type(NamedTypeReferenceType.create(NamedTypeReferenceClass.StructNamedTypeClass, name = type_name)))
         params.insert(0, FunctionParameter(this_type, name = "this"))
 
         if (sym_parts[-1] == sym_parts[-2]) and (return_type.type_class == TypeClass.VoidTypeClass):
