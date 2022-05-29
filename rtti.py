@@ -37,12 +37,13 @@ def get_vtable_name(view, name):
     return 'vtable_{0}'.format(name)
 
 
-def create_vtable(view, vtable_name, vtable_address, max_funcs = 64):
+def create_vtable(view, vtable_name, vtable_address):
     pointer_t = BinjaStruct.Pointer(view)
 
     funcs = list()
+    i = 0
 
-    for i in range(max_funcs):
+    while True:
         func_pointer_address = vtable_address + (i * view.address_size)
         func_address, _ = pointer_t.read(view, func_pointer_address)
 
@@ -59,10 +60,12 @@ def create_vtable(view, vtable_name, vtable_address, max_funcs = 64):
                 break
 
         funcs.append(func_address)
+        i += 1
 
     if funcs:
         if vtable_name is not None:
             view.define_user_symbol(Symbol(SymbolType.DataSymbol, vtable_address, vtable_name))
+
         view.define_user_data_var(vtable_address, Type.array(Type.pointer(view.arch, Type.void(), const = True), len(funcs)))
 
     return funcs
